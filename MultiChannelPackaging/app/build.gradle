@@ -1,0 +1,147 @@
+apply plugin: 'com.android.application'
+
+// 得到当前时间的字符串 用于发包的时候拼接命名
+def releaseTime() {
+    return new Date().format("yyyy-MM-dd", TimeZone.getTimeZone("UTC"))
+}
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "25.0.2"
+    defaultConfig {
+        applicationId "com.thinkive.bank.multichannel"
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+        // dex突破65535的限制
+        multiDexEnabled true
+        // AndroidManifest.xml 里面UMENG_CHANNEL的value为 ${UMENG_CHANNEL_VALUE}
+        manifestPlaceholders = [UMENG_CHANNEL_VALUE: "channel_name"]
+    }
+
+    //执行lint检查，有任何的错误或者警告提示，都会终止构建，我们可以将其关掉。
+    lintOptions {
+        abortOnError false
+        // 防止在发布的时候出现因MissingTranslation导致Build Failed!
+        disable 'MissingTranslation'
+    }
+
+    // 签名配置
+    signingConfigs {
+        release {
+            keyAlias 'thinkive'
+            keyPassword 'thinkiveQWERT1003'
+            storeFile file('E:/StudioProject/MultiChannelPackaging/app/thinkive.keystore')
+            storePassword 'thinkiveQWERT1003'
+        }
+    }
+
+    // 此处代表打包类型，包含调试版本debug，以及发布版本release
+    buildTypes {
+        debug {
+            // 显示Log
+            buildConfigField "boolean", "LOG_DEBUG", "true"
+            versionNameSuffix "-debug"
+            minifyEnabled false
+            zipAlignEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+        release {
+            // 不显示Log
+            buildConfigField "boolean", "LOG_DEBUG", "false"
+            // 进行混淆
+            minifyEnabled true
+            // Zipalign优化
+            zipAlignEnabled true
+            // 移除无用的resource文件
+            shrinkResources true
+            // 前一部分代表系统默认的android程序的混淆文件，该文件已经包含了基本的混淆声明
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 签名
+            signingConfig signingConfigs.release
+
+            //根据渠道自定义apk的名称,自带版本号,渠道名
+            applicationVariants.all { variant ->
+                variant.outputs.each { output ->
+                    def outputFile = output.outputFile
+                    if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                        // 输出apk名称为xxx_v1.0_2015-01-15_wandoujia.apk  xxx可以进行自定义
+                        def fileName = "xxx_v${defaultConfig.versionName}_${releaseTime()}_${variant.productFlavors[0].name}.apk"
+                        output.outputFile = new File(outputFile.parent, fileName)
+                    }
+                }
+            }
+        }
+    }
+
+    // 多渠道打包中，渠道信息的设置
+    productFlavors {
+        // 每一个渠道，都和defaultConfig一样，可以设置不同的软件包
+        //（便于在同一个测试手机上，安装所有渠道下的版本）
+        // 不同的版本信息
+        xiaomi {
+            applicationId "com.thinkive.bank.multichannel.xiaomi"
+            //替换defaultConfig中的版本信息
+            versionCode 3
+            versionName "3.0"
+        }
+        _360 {    //包名不能包含数字360，否则安装不成功
+//            applicationId "com.thinkive.bank.multichannel.360"  错误包名！！！
+            applicationId "com.thinkive.bank.multichannel.zhushou"
+        }
+        baidu {
+            applicationId "com.thinkive.bank.multichannel.baidu"
+        }
+        wandoujia {
+            applicationId "com.thinkive.bank.multichannel.wandoujia"
+        }
+
+//        kuaiyidian{}
+//        anzhuo{}
+//        yingyonghui{}
+//        anzhi{}
+//        huawei{}
+//        lenovo{}
+//        mumayi{}
+//        jifeng{}
+//        yingyongbao{}
+//        yidong{}
+//        liantong{}
+//        dianxin{}
+//        wangyi{}
+//        _91{}
+//        meizu{}
+//        tf{}
+//        tencent {}
+//        taobao {}
+
+    }
+
+    //批量配置
+    productFlavors.all {
+        flavor -> flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
+    }
+
+}
+
+//Terminal 命令总结：
+//gradlew assembleRelease  生成渠道列表中所有渠道的Release版本
+//gradlew assembleDebug   生成渠道列表中所有渠道的Debug版本
+//gradlew assembleWandoujiaRelease  生成渠道列表中wandoujia渠道的release版本
+//gradlew assembleWandoujia  生成渠道列表中wandoujia渠道的Release和Debug版本
+
+//注意（必须）：进入gradle.properties文件中，将org.gradle.jvmargs=-Xmx1536m改为org.gradle.jvmargs=-Xmx512m
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile 'com.android.support:appcompat-v7:23.0.0'
+    testCompile 'junit:junit:4.12'
+    //添加友盟统计依赖
+    compile 'com.umeng.analytics:analytics:latest.integration'
+
+}
